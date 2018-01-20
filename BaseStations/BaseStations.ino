@@ -1,13 +1,3 @@
-/* dump.ino Example sketch for IRLib2
-   Illustrates how to receive an IR signal, decode it and print
-   information about it to the serial monitor.
-*/
-//This includes everything. Not generally recommended.
-//It's better to include only the parts of library you really need.
-//But for this example it's quick and easy. See "comboDump" example
-//for a more efficient way.
-
-
 ///////////////////////////////////////////////////////////////////////// PIXEL SETUP
 #include "FastLED.h"
 #define NUM_LEDS 12
