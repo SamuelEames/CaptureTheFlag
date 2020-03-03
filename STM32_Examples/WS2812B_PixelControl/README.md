@@ -1,3 +1,10 @@
+# Samuel's Notes
+I modified the original WS2812B.cpp file to use SPI2 on the STM32 (tested on STM32F103C8T6). Use PB15 (SPI2-MOSI) for pixel data line.
+I'm fairly sure that is the only filed I needed to edit in the end. 
+These changes were made so that the LoRa radio could be used on SPI1.
+
+Following sections are Roger Clark's original Readme for this library.
+
 # WS2812B_STM32_Libmaple
 WS2812B (Neopixel) library for Arduino STM32 (Libmaple core)
 
