@@ -46,45 +46,45 @@
 
 #include <Arduino.h>
 
-#define VERSION_EXAMPLE "1.2"
+// #define VERSION_EXAMPLE "1.2"
 
 /*
  * Set library modifiers first to set input pin etc.
  */
-#if defined(ESP8266)
-#define IRMP_INPUT_PIN 14 // D5
-#define BLINK_13_LED_IS_ACTIVE_LOW // The LED on my board is active LOW
+// #if defined(ESP8266)
+// #define IRMP_INPUT_PIN 14 // D5
+// #define BLINK_13_LED_IS_ACTIVE_LOW // The LED on my board is active LOW
 
-#elif defined(ESP32)
-#define IRMP_INPUT_PIN 15
+// #elif defined(ESP32)
+// #define IRMP_INPUT_PIN 15
 
-#elif defined(STM32F1xx)   // for "Generic STM32F1 series" from STM32 Boards from STM32 cores of Arduino Board manager
-#define IRMP_INPUT_PIN 4 // PA4
-#define BLINK_13_LED_IS_ACTIVE_LOW // The LED on the BluePill is active LOW
+// #if defined(STM32F1xx)   // for "Generic STM32F1 series" from STM32 Boards from STM32 cores of Arduino Board manager
+// #define IRMP_INPUT_PIN 4 // PA4
+// #define BLINK_13_LED_IS_ACTIVE_LOW // The LED on the BluePill is active LOW
 
-#elif defined(STM32F1xx) || defined(__STM32F1__)
+// #if defined(STM32F1xx) || defined(__STM32F1__)
 // BluePill in 2 flavors
 // STM32F1xx is for "Generic STM32F1 series" from STM32 Boards from STM32 cores of Arduino Board manager
 // __STM32F1__is for "Generic STM32F103C series" from STM32F1 Boards (STM32duino.com) of manual installed hardware folder
 #define IRMP_INPUT_PIN 4 // PA4
 #define BLINK_13_LED_IS_ACTIVE_LOW // The LED on the BluePill is active LOW
 
-#elif defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny87__) || defined(__AVR_ATtiny167__)
-#include "ATtinySerialOut.h"
-#include "ATtinyUtils.h" // for changeDigisparkClock() and definition of LED_BUILTIN
-#  if  defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-#define IRMP_INPUT_PIN 0
-#  else
-#    if defined(ARDUINO_AVR_DIGISPARKPRO)
-#define IRMP_INPUT_PIN 9  // PA3 - on DigisparkBoard labeled as pin 9
-#    else
-#define IRMP_INPUT_PIN 3
-#    endif
-#  endif
+// #elif defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__) || defined(__AVR_ATtiny87__) || defined(__AVR_ATtiny167__)
+// #include "ATtinySerialOut.h"
+// #include "ATtinyUtils.h" // for changeDigisparkClock() and definition of LED_BUILTIN
+// #  if  defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+// #define IRMP_INPUT_PIN 0
+// #  else
+// #    if defined(ARDUINO_AVR_DIGISPARKPRO)
+// #define IRMP_INPUT_PIN 9  // PA3 - on DigisparkBoard labeled as pin 9
+// #    else
+// #define IRMP_INPUT_PIN 3
+// #    endif
+// #  endif
 
-#else
-#define IRMP_INPUT_PIN 3
-#endif
+// #else
+// #define IRMP_INPUT_PIN 3
+// #endif
 
 #define IRMP_PROTOCOL_NAMES 1 // Enable protocol number mapping to protocol strings - needs some FLASH. Must before #include <irmp*>
 
@@ -100,30 +100,31 @@ IRMP_DATA irmp_data[1];
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-void setup() {
+void setup() 
+{
 	Serial.begin(115200);
-#if defined(__AVR_ATmega32U4__)
-    while (!Serial); //delay for Leonardo, but this loops forever for Maple Serial
-#endif
-#if defined(SERIAL_USB)
-    delay(2000); // To be able to connect Serial monitor after reset and before first printout
-#endif
-#if defined(__ESP8266__)
-	Serial.println(); // to separate it from the internal boot output
-#endif
-#if defined(ARDUINO_AVR_DIGISPARK) || defined(ARDUINO_AVR_DIGISPARKPRO)
-    changeDigisparkClock();
-#endif
+// #if defined(__AVR_ATmega32U4__)
+    // while (!Serial); //delay for Leonardo, but this loops forever for Maple Serial
+// #endif
+// #if defined(SERIAL_USB)
+//     delay(2000); // To be able to connect Serial monitor after reset and before first printout
+// #endif
+// #if defined(__ESP8266__)
+// 	Serial.println(); // to separate it from the internal boot output
+// #endif
+// #if defined(ARDUINO_AVR_DIGISPARK) || defined(ARDUINO_AVR_DIGISPARKPRO)
+//     changeDigisparkClock();
+// #endif
 	// Just to know which program is running on my Arduino
-	Serial.println(F("START " __FILE__ "\r\nVersion " VERSION_EXAMPLE " from " __DATE__));
+	// Serial.println(F("START " __FILE__ "\r\nVersion " VERSION_EXAMPLE " from " __DATE__));
 	irmp_init();
-	irmp_blink13(true); // Enable LED feedback
+	// irmp_blink13(true); // Enable LED feedback
 
-#if defined(STM32F1xx)
-    Serial.println(F("Ready to receive IR signals at pin PA4")); // the internal pin numbers are crazy for the STM32 Boards library
-#else
-    Serial.println(F("Ready to receive IR signals at pin " STR(IRMP_INPUT_PIN)));
-#endif
+// #if defined(STM32F1xx)
+//     Serial.println(F("Ready to receive IR signals at pin PA4")); // the internal pin numbers are crazy for the STM32 Boards library
+// #else
+//     Serial.println(F("Ready to receive IR signals at pin " STR(IRMP_INPUT_PIN)));
+// #endif
     }
 
 void loop() {
