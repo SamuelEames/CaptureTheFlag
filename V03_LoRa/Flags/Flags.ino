@@ -18,37 +18,37 @@ unsigned long timerCount;
 //////////////////////////////////////////////////
 
 #ifdef TEAM_RED
-	#define REPEATS 610000
+	#define REPEATS 	610000
 	#define IRCODE 	0x1010101A
 #endif
 
 #ifdef TEAM_ORANGE
-	#define REPEATS 590000
+	#define REPEATS 	590000
 	#define IRCODE 	0x1020202A
 #endif
 
 #ifdef TEAM_YELLOW
-	#define REPEATS 530000
+	#define REPEATS 	530000
 	#define IRCODE 	0x1040404A
 #endif
 
 #ifdef TEAM_GREEN
-	#define REPEATS 470000
+	#define REPEATS 	470000
 	#define IRCODE 	0x1080808A
 #endif
 
 #ifdef TEAM_BLUE
-	#define REPEATS 430000
+	#define REPEATS 	430000
 	#define IRCODE 	0x1101010A
 #endif
 
 #ifdef TEAM_PURPLE
-	#define REPEATS 410000
+	#define REPEATS 	410000
 	#define IRCODE 	0x1202020A
 #endif
 
 #ifdef TEAM_WHITE
-	#define REPEATS 670000
+	#define REPEATS 	670000
 	#define IRCODE 	0x1404040A
 #endif
 
