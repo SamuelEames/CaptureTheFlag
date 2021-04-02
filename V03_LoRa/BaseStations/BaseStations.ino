@@ -43,6 +43,10 @@ enum team:uint8_t { TEAM_RED, TEAM_ORANGE, TEAM_YELLOW, TEAM_GREEN, TEAM_BLUE, T
 CRGB leds[NUM_LEDS]; // Define the array of leds
 
 
+const uint16_t LEDUpdate_Period = 500;
+uint16_t LEDUpdate_StartTime;
+
+
 
 ///////////////////////////////////////////////////////////////////////// FLAG related variables
 /* OK, here's how I think it works
@@ -56,11 +60,13 @@ CRGB leds[NUM_LEDS]; // Define the array of leds
 #define NUM_FLAGS 7
 
 uint8_t FlagsPresent = 0b00000000; 			// Used to update LEDs, but lags to change after flag is removed
-uint8_t FlagsSensed `= 0b00000000;			// Sensed flags are written here, then copied to FlagsPresent
+uint8_t FlagsSensed  = 0b00000000;			// Sensed flags are written here, then copied to FlagsPresent
 
 // Colours associated with flags (match order with IR_FlagCodes array below)
 const uint32_t flagCols[NUM_FLAGS] = {COL_RED, COL_ORANGE, COL_YELLOW, COL_GREEN, COL_BLUE, COL_MAGENTA, COL_WHITE};
 
+// TODO Update this later to be set by hex BCD switch or EEPROM
+uint8_t MY_TEAM; 			// 'Background' colour to set LEDs on base station
 
 const uint16_t FlagReset_Period = 10000;	// Period (ms) on which to reset FlagsSensed
 uint32_t FlagReset_StartTime;
@@ -116,6 +122,8 @@ bool newLoRaMessage = false;
 void setup() 
 {
 	// Check EEPROM for station ID
+	MY_TEAM = EEPROM.read(0) - 48;
+
 	if (EEPROM.read(0) == ADDR_MASTER)
 		ImTheMaster = true;
 	else
@@ -128,7 +136,7 @@ void setup()
 
 	//////////////////////////////////////// PIXEL SETUP
 	FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS); 
-	FastLED.setMaxPowerInVoltsAndMilliamps(5,20); 						// Limit total power draw of LEDs to 200mA at 5V
+	FastLED.setMaxPowerInVoltsAndMilliamps(5,200); 						// Limit total power draw of LEDs to 200mA at 5V
 	fill_solid(leds, NUM_LEDS, COL_BLACK);
 	
 	// Show setup progress
@@ -204,6 +212,8 @@ void setup()
 	leds[3] = CRGB::Green;
 	FastLED.show();
 
+	LEDUpdate_StartTime = millis();
+
 
 	// Record start time of program fro flag reset timer
 	FlagReset_StartTime = millis();
@@ -229,6 +239,7 @@ void loop()
 
 	FlagResetTimer();
 	// setPixelCols();
+	updateLEDs();
 
 }
 
@@ -304,7 +315,8 @@ void IR_RX()
 				#endif
 
 
-				setPixelCols();
+				// setPixelCols();
+				// updateLEDs();
 			}
 		}
 
@@ -315,7 +327,7 @@ void IR_RX()
 
 void setPixelCols()
 {
-	uint8_t parts = 0;
+	uint8_t numFlags = 0;
 	bool dodgyFive = false;
 
 	fill_solid(leds, NUM_LEDS, COL_BLACK); // TODO - set this to base team dim colour
@@ -324,25 +336,25 @@ void setPixelCols()
 	for (uint8_t i = 0; i < NUM_FLAGS; ++i)
 	{
 		if ((FlagsPresent >> i) & 1U)
-			parts++;
+			numFlags++;
 	}
 
 
-	if (parts == 5)
+	if (numFlags == 5)
 	{
 		dodgyFive = true;
-		parts++;
+		numFlags++;
 	}
 
 
-	for (int x = 0; x < parts; ++x)
+	for (int x = 0; x < numFlags; ++x)
 	{
-		for (int y = 0; y < NUM_LEDS/parts; ++y)
+		for (int y = 0; y < NUM_LEDS/numFlags; ++y)
 		{
 			if (dodgyFive & x == 5)
-				leds[y+x*(NUM_LEDS/parts)] = COL_BLACK; // TODO set to base team dim colour
+				leds[y+x*(NUM_LEDS/numFlags)] = COL_BLACK; // TODO set to base team dim colour
 			else
-				leds[y+x*(NUM_LEDS/parts)] = flagCols[getFlagCol(x)];
+				leds[y+x*(NUM_LEDS/numFlags)] = flagCols[getTeamCol(x)];
 		}
 	}
 
@@ -350,10 +362,10 @@ void setPixelCols()
 	return;
 }
 
-uint8_t getFlagCol(unsigned int position)
+uint8_t getTeamCol(uint8_t position)
 {
-	unsigned int count = 0;
-	for (int i = 0; i < NUM_FLAGS; ++i)
+	uint8_t count = 0;
+	for (uint8_t i = 0; i < NUM_FLAGS; ++i)
 	{
 		if ((FlagsPresent >> i) & 1U)
 		{
@@ -390,8 +402,63 @@ void FlagResetTimer()
 			Serial.println(FlagsPresent, BIN);
 		#endif
 
-		setPixelCols();
+		// setPixelCols();
 	}
+
+	return;
+}
+
+
+
+void updateLEDs()
+{
+	// Lights up LEDs according to status of station
+	static uint8_t step = 0;
+	const uint8_t width = NUM_LEDS / NUM_FLAGS;
+	uint8_t nextPixel;
+
+	// Return if it's not time to update yet
+	if ( (LEDUpdate_StartTime + LEDUpdate_Period) >= millis())
+		return;
+	else
+		LEDUpdate_StartTime = millis();
+
+	Serial.println(F("Updating LEDs!"));
+
+	// Set dim base colour
+	fill_solid(leds, NUM_LEDS, getTeamCol(MY_TEAM));
+	fadeLightBy(leds, NUM_LEDS, 200);
+
+
+	int8_t pixelNum = 0;
+
+
+
+	// Light up LEDs according to present flags
+	for (uint8_t i = 0; i < NUM_FLAGS; ++i)					// Step through flag flags
+	{
+		if ((FlagsPresent >> i) & 1U)								// If flag is present...
+		{
+			for (uint8_t j = 0; j < width; ++j)					// Light LEDs for present flags
+			{
+				if ( (step + pixelNum) >= NUM_LEDS)				// Loop back to start of pixel chain
+					leds[step + pixelNum++ - NUM_LEDS] = flagCols[i];	
+				else
+					leds[step + pixelNum++] = flagCols[i];	
+			}
+		}
+	}
+
+
+
+
+
+	FastLED.show();
+
+	// Update step count
+	if (++step >= NUM_LEDS)
+		step = 0;
+
 
 	return;
 }
