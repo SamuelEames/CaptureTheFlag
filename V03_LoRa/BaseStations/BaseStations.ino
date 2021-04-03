@@ -44,7 +44,7 @@ CRGB leds[NUM_LEDS]; // Define the array of leds
 
 
 const uint16_t LEDUpdate_Period = 500;
-uint16_t LEDUpdate_StartTime;
+uint32_t LEDUpdate_StartTime;
 
 
 
@@ -58,12 +58,27 @@ uint16_t LEDUpdate_StartTime;
 */
 
 #define NUM_FLAGS 7
+#define NUM_TEAMS 7
 
 uint8_t FlagsPresent = 0b00000000; 			// Used to update LEDs, but lags to change after flag is removed
 uint8_t FlagsSensed  = 0b00000000;			// Sensed flags are written here, then copied to FlagsPresent
 
-// Colours associated with flags (match order with IR_FlagCodes array below)
-const uint32_t flagCols[NUM_FLAGS] = {COL_RED, COL_ORANGE, COL_YELLOW, COL_GREEN, COL_BLUE, COL_MAGENTA, COL_WHITE};
+// Colours associated with teams
+const uint32_t teamCols[NUM_TEAMS] =	{	
+														COL_RED,
+														COL_ORANGE,
+														COL_YELLOW,
+														COL_GREEN,
+														COL_BLUE,
+														COL_MAGENTA,
+														COL_WHITE
+													};
+
+// Teams may have multiple flags associated with them but flags have unique IR Codes
+// flagCols array sets the colours of each flag; the number refers to the colour from teamCols[]
+// Match the order of this array with IR_FlagCodes[] to get the right colour for each flag IRCode
+const uint8_t flagCols[NUM_FLAGS] = {0, 1, 2, 3, 4, 5, 6};
+
 
 // TODO Update this later to be set by hex BCD switch or EEPROM
 uint8_t MY_TEAM; 			// 'Background' colour to set LEDs on base station
@@ -238,7 +253,6 @@ void loop()
 	LoRa_RX();
 
 	FlagResetTimer();
-	// setPixelCols();
 	updateLEDs();
 
 }
@@ -325,42 +339,6 @@ void IR_RX()
 	}
 }
 
-void setPixelCols()
-{
-	uint8_t numFlags = 0;
-	bool dodgyFive = false;
-
-	fill_solid(leds, NUM_LEDS, COL_BLACK); // TODO - set this to base team dim colour
-
-	// Determine number of flags present
-	for (uint8_t i = 0; i < NUM_FLAGS; ++i)
-	{
-		if ((FlagsPresent >> i) & 1U)
-			numFlags++;
-	}
-
-
-	if (numFlags == 5)
-	{
-		dodgyFive = true;
-		numFlags++;
-	}
-
-
-	for (int x = 0; x < numFlags; ++x)
-	{
-		for (int y = 0; y < NUM_LEDS/numFlags; ++y)
-		{
-			if (dodgyFive & x == 5)
-				leds[y+x*(NUM_LEDS/numFlags)] = COL_BLACK; // TODO set to base team dim colour
-			else
-				leds[y+x*(NUM_LEDS/numFlags)] = flagCols[getTeamCol(x)];
-		}
-	}
-
-	FastLED.show();
-	return;
-}
 
 uint8_t getTeamCol(uint8_t position)
 {
@@ -402,7 +380,6 @@ void FlagResetTimer()
 			Serial.println(FlagsPresent, BIN);
 		#endif
 
-		// setPixelCols();
 	}
 
 	return;
@@ -415,7 +392,6 @@ void updateLEDs()
 	// Lights up LEDs according to status of station
 	static uint8_t step = 0;
 	const uint8_t width = NUM_LEDS / NUM_FLAGS;
-	uint8_t nextPixel;
 
 	// Return if it's not time to update yet
 	if ( (LEDUpdate_StartTime + LEDUpdate_Period) >= millis())
@@ -423,18 +399,13 @@ void updateLEDs()
 	else
 		LEDUpdate_StartTime = millis();
 
-	Serial.println(F("Updating LEDs!"));
-
 	// Set dim base colour
 	fill_solid(leds, NUM_LEDS, getTeamCol(MY_TEAM));
 	fadeLightBy(leds, NUM_LEDS, 200);
 
-
-	int8_t pixelNum = 0;
-
-
-
 	// Light up LEDs according to present flags
+	int8_t pixelNum = 0;												// Current pixel being updated
+
 	for (uint8_t i = 0; i < NUM_FLAGS; ++i)					// Step through flag flags
 	{
 		if ((FlagsPresent >> i) & 1U)								// If flag is present...
@@ -442,18 +413,15 @@ void updateLEDs()
 			for (uint8_t j = 0; j < width; ++j)					// Light LEDs for present flags
 			{
 				if ( (step + pixelNum) >= NUM_LEDS)				// Loop back to start of pixel chain
-					leds[step + pixelNum++ - NUM_LEDS] = flagCols[i];	
+					leds[step + pixelNum++ - NUM_LEDS] = teamCols[flagCols[i]];	
 				else
-					leds[step + pixelNum++] = flagCols[i];	
+					leds[step + pixelNum++] = teamCols[flagCols[i]];	
 			}
 		}
 	}
 
 
-
-
-
-	FastLED.show();
+	FastLED.show();													// Show the things
 
 	// Update step count
 	if (++step >= NUM_LEDS)
