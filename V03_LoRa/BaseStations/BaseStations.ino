@@ -58,21 +58,28 @@ uint32_t LEDUpdate_StartTime;
 */
 
 #define NUM_FLAGS 7
-#define NUM_TEAMS 7
+#define NUM_TEAMS 8
 
 uint8_t FlagsPresent = 0b00000000; 			// Used to update LEDs, but lags to change after flag is removed
 uint8_t FlagsSensed  = 0b00000000;			// Sensed flags are written here, then copied to FlagsPresent
 
-// Colours associated with teams
-const uint32_t teamCols[NUM_TEAMS] =	{	
-														COL_RED,
-														COL_ORANGE,
-														COL_YELLOW,
-														COL_GREEN,
-														COL_BLUE,
-														COL_MAGENTA,
-														COL_WHITE
-													};
+// Team pixel colours
+// const uint32_t teamCols[NUM_TEAMS] =	{	
+// 														COL_RED,
+// 														COL_ORANGE,
+// 														COL_YELLOW,
+// 														COL_GREEN,
+// 														COL_CYAN,
+// 														COL_BLUE,
+// 														COL_MAGENTA,
+// 														COL_WHITE
+// 													};
+
+														// Red, Orange, Yellow, Green, Aqua, Blue, Purple, Pink
+const uint32_t teamCols_Hue[NUM_TEAMS] =	{ 0, 18, 64, 96, 128, 160, 192, 230 };
+#define HSV_SFULL	255
+#define HSV_VFULL 255
+#define HSV_VDIM	35
 
 // Teams may have multiple flags associated with them but flags have unique IR Codes
 // flagCols array sets the colours of each flag; the number refers to the colour from teamCols[]
@@ -137,7 +144,7 @@ bool newLoRaMessage = false;
 void setup() 
 {
 	// Check EEPROM for station ID
-	MY_TEAM = EEPROM.read(0) - 48;
+	MY_TEAM = EEPROM.read(0) - 49;				// TODO - teams acre current save to EEPROM, use a BCD switch instead
 
 	if (EEPROM.read(0) == ADDR_MASTER)
 		ImTheMaster = true;
@@ -152,7 +159,7 @@ void setup()
 	//////////////////////////////////////// PIXEL SETUP
 	FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS); 
 	FastLED.setMaxPowerInVoltsAndMilliamps(5,200); 						// Limit total power draw of LEDs to 200mA at 5V
-	fill_solid(leds, NUM_LEDS, COL_BLACK);
+	fill_solid(leds, NUM_LEDS, CRGB::Black);
 	
 	// Show setup progress
 	leds[0] = CRGB::Green;
@@ -241,8 +248,9 @@ void setup()
 
 	// Make a little noise
 	digitalWrite(BUZZ_PIN, LOW);
-	delay(100);
-	digitalWrite(BUZZ_PIN, HIGH);
+	delay(20);
+	digitalWrite(BUZZ_PIN, HIGH); 
+
 
 }
 
@@ -312,7 +320,6 @@ void IR_RX()
 		IR_Decoder.decode();           //Decode message
 		// IR_Decoder.dumpResults(true);  //Dump results
 
-
 		// Check if received IR code matches one of our team codes
 		for (uint8_t i = 0; i < NUM_FLAGS; ++i)
 		{
@@ -325,36 +332,19 @@ void IR_RX()
 				#ifdef debugMSG
 					Serial.print(F("Flags Sensed = "));
 					Serial.println(FlagsSensed, BIN);
-
 				#endif
-
-
-				// setPixelCols();
-				// updateLEDs();
+				
+				// Only one IR code is read at a time, so jump out once we match one
+				IR_Receiver.enableIRIn();      //Restart IR receiver
+				return;
 			}
 		}
 
-
 		IR_Receiver.enableIRIn();      //Restart IR receiver
 	}
-}
 
-
-uint8_t getTeamCol(uint8_t position)
-{
-	uint8_t count = 0;
-	for (uint8_t i = 0; i < NUM_FLAGS; ++i)
-	{
-		if ((FlagsPresent >> i) & 1U)
-		{
-			if (count == position)
-				return i;
-
-			count++;
-		}
-	}
-
-	return TEAM_WHITE;
+	
+	return;
 }
 
 
@@ -368,8 +358,6 @@ void FlagResetTimer()
 		FlagsSensed = 0;					// Reset FlagsSensed
 
 		FlagReset_StartTime = millis();	// Reset timer
-
-		
 
 		#ifdef debugMSG
 			Serial.println(F("Flags Reset"));
@@ -400,8 +388,12 @@ void updateLEDs()
 		LEDUpdate_StartTime = millis();
 
 	// Set dim base colour
-	fill_solid(leds, NUM_LEDS, getTeamCol(MY_TEAM));
-	fadeLightBy(leds, NUM_LEDS, 200);
+	// fill_solid(leds, NUM_LEDS, teamCols[MY_TEAM]);
+	// nscale8_video(leds, NUM_LEDS, 5);
+
+	fill_solid(leds, NUM_LEDS, CHSV(teamCols_Hue[MY_TEAM], HSV_SFULL, HSV_VDIM)); 
+
+
 
 	// Light up LEDs according to present flags
 	int8_t pixelNum = 0;												// Current pixel being updated
@@ -413,9 +405,10 @@ void updateLEDs()
 			for (uint8_t j = 0; j < width; ++j)					// Light LEDs for present flags
 			{
 				if ( (step + pixelNum) >= NUM_LEDS)				// Loop back to start of pixel chain
-					leds[step + pixelNum++ - NUM_LEDS] = teamCols[flagCols[i]];	
+					// leds[step + pixelNum++ - NUM_LEDS] = teamCols[flagCols[i]];	
+					leds[step + pixelNum++ - NUM_LEDS] = CHSV(teamCols_Hue[flagCols[i]], HSV_SFULL, HSV_VFULL);
 				else
-					leds[step + pixelNum++] = teamCols[flagCols[i]];	
+					leds[step + pixelNum++] = CHSV(teamCols_Hue[flagCols[i]], HSV_SFULL, HSV_VFULL);	
 			}
 		}
 	}
