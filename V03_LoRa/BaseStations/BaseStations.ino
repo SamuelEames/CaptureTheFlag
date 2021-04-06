@@ -127,7 +127,7 @@ RHReliableDatagram LoRa(rf95, EEPROM.read(0));
 // 	[1] Batt %	(set in TX function)
 
 
-const uint8_t LORA_BUFF_LEN = STATION_DATA_LEN + NUM_FLAGS; // NOTE: ensure this isn't greater than LoRa.maxMessageLength() = 239 bytes
+const uint8_t LORA_BUFF_LEN = STATION_DATA_LEN + ceil(NUM_FLAGS/8); // NOTE: ensure this isn't greater than LoRa.maxMessageLength() = 239 bytes
 uint8_t LoRa_RecvBuffLen; 							// Set to RH_RF95_MAX_MESSAGE_LEN before each recv
 
 uint8_t LoRa_TX_Buffer[LORA_BUFF_LEN]; 		// Buffer to transmit over LoRa
@@ -137,7 +137,8 @@ uint8_t LoRa_msgFrom;								// Holds ID of station last message was received fr
 bool ImTheMaster;
 bool newLoRaMessage = false;
 
-
+const uint16_t LoRa_TX_Period = 10000;	// Period (ms) on which to reset FlagsSensed
+uint32_t LoRa_TX_StartTime;
 
 
 
@@ -220,7 +221,7 @@ void setup()
 	}
 
 	rf95.setFrequency(RF95_FREQ);
-	rf95.setTxPower(20); 							// Setup Power,dBm
+	rf95.setTxPower(5); 							// Setup Power,dBm
 
 	// Serial.println(F("Waiting for radio to setup"));
 	delay(500); 	// TODO - Why this delay?
@@ -251,6 +252,9 @@ void setup()
 	delay(20);
 	digitalWrite(BUZZ_PIN, HIGH); 
 
+	// Let the master know we're here!
+	LoRa_TX(ADDR_MASTER);
+
 
 }
 
@@ -260,8 +264,13 @@ void loop()
 	IR_RX();
 	LoRa_RX();
 
+	// Return if it's too soon to transmit.
+	if ( (LoRa_TX_StartTime + LoRa_TX_Period) <= millis() )
+		LoRa_TX(ADDR_MASTER);	// Set to transmit station state roughly every 15 secs (maybe change to 30 later)
+
+
 	FlagResetTimer();
-	updateLEDs();
+	updateLEDs();				// Set to update LEDs once a second
 
 }
 
@@ -305,6 +314,75 @@ void LoRa_RX()
 			}
 		}
 	}
+
+	return;
+}
+
+void LoRa_TX(uint8_t toAddr)
+{
+	// Transmit LoRa message
+
+
+
+	// Update station data
+	// LoRa_TX_Buffer[0] = NodeState;				// Get current game state
+	// LoRa_TX_Buffer[1] = getBattPercent();		// Get current battery level
+
+	// Copy flag flags into TX Buffer
+	memcpy ( &LoRa_TX_Buffer + STATION_DATA_LEN, &FlagsPresent, ceil(NUM_FLAGS/8));
+	
+
+	if (LoRa.sendtoWait(LoRa_TX_Buffer, LORA_BUFF_LEN, toAddr))
+	{
+		// Now wait for a reply from the server
+
+		// Print sent data
+		#ifdef debugMSG
+			Serial.print(F("Sent: "));
+			for (uint8_t i = 0; i < LORA_BUFF_LEN; ++i)
+			{
+				Serial.print(F(" "));
+				Serial.print(LoRa_TX_Buffer[i], HEX);
+			}
+			Serial.println();
+		#endif
+
+
+		LoRa_RecvBuffLen = RH_RF95_MAX_MESSAGE_LEN;  
+		if (LoRa.recvfromAckTimeout(LoRa_RX_Buffer, &LoRa_RecvBuffLen, 2000, &LoRa_msgFrom))
+		{
+			;
+			#ifdef debugMSG
+				Serial.print(F("got reply from : "));
+				Serial.println(LoRa_msgFrom, DEC);
+
+
+				Serial.print(F("Received: "));
+				for (uint8_t i = 0; i < LoRa_RecvBuffLen; ++i)
+				{
+					Serial.print(F(" "));
+					Serial.print(LoRa_RX_Buffer[i], HEX);
+				}
+				Serial.println();
+			#endif
+		}
+		else
+		{
+			#ifdef debugMSG
+				Serial.println(F("No reply from master station?"));
+			#endif
+		}
+	}
+	else
+	{
+		#ifdef debugMSG
+			Serial.println(F("sendtoWait failed"));
+		#endif
+	}
+
+
+	// Reset timer for transmits
+	LoRa_TX_StartTime = millis();
 
 	return;
 }
