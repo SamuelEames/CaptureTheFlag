@@ -10,6 +10,7 @@
 #include <RH_RF95.h>					// LoRa Driver
 #include <RHReliableDatagram.h>
 #include "CommonVars.h"				// Extra local variables
+#define FASTLED_INTERNAL			// Stop the annoying messages during compile
 #include <FastLED.h>					// Pixel LED
 #include <EEPROM.h>					// EEPROM used to store (this) station ID
 

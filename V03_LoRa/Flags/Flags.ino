@@ -6,8 +6,8 @@ Code used to intermittently send out IR codes from within capture the flag flags
 Received by base stations to know which flags are at them at any given time.
 */
 
-/* 
-// Note - currently setup to run on A23 battery
+/* BATTERY NOTES
+ * Currently setup to run on A23 battery
  * A23 batteries have a capacity around 55mAh
  * System draws about 23mA in the main loop
  * This works out to be roughly 2hrs 23mins run time
@@ -18,54 +18,21 @@ Battery Life = Battery Capacity in mAh / Load Current in mAh
 
 
 #include <IRLib.h>
-#include <FastLED.h>					// Pixel LED
+#include <Adafruit_NeoPixel.h>
 
-IRsendNEC My_Sender;
+IRsendNEC IR_TX;						// Instanciate IR transmitter 
 
-uint32_t timer_IR;  
-uint32_t timer_LED;  
-#define LED_PERIOD 2000
 
-//////////////////////////////////////////////////
-#define TEAM_BLUE	   // ENTER TEAM HERE!! //
-//////////////////////////////////////////////////
-// TODO - Update this section to be more general like in BaseStation doc where multiple flags can have the same colour, etc
-#ifdef TEAM_RED
-	#define REPEATS 	610000
-	#define IRCODE 	0x1010101A
-#endif
+// Delays taking into account IRLib runs CPU without a prescaler
+// delay(1000000) = 15s --> I believe IR_Send changes CPU prescaler somewhere
+// 1000000 / 15000 = 67
+#define DELAY_SCALE 67
 
-#ifdef TEAM_ORANGE
-	#define REPEATS 	590000
-	#define IRCODE 	0x1020202A
-#endif
+// Fed into random function
+#define IR_TX_INTERVAL_MIN 800		// Min ms intervall to send IR codes on
+#define IR_TX_INTERVAL_MAX 1600		// Max ms intervall to send IR codes on
 
-#ifdef TEAM_YELLOW
-	#define REPEATS 	530000
-	#define IRCODE 	0x1040404A
-#endif
-
-#ifdef TEAM_GREEN
-	#define REPEATS 	470000
-	#define IRCODE 	0x1080808A
-#endif
-
-#ifdef TEAM_BLUE
-	#define REPEATS 	430000
-	#define IRCODE 	0x1101010A
-#endif
-
-#ifdef TEAM_PURPLE
-	#define REPEATS 	410000
-	#define IRCODE 	0x1202020A
-#endif
-
-#ifdef TEAM_WHITE
-	#define REPEATS 	670000
-	#define IRCODE 	0x1404040A
-#endif
-
-const uint32_t IR_FlagCodes[7] = {
+const uint32_t IR_FlagCodes[] = {
 												0x1010101A,
 												0x1020202A,
 												0x1040404A,
@@ -75,56 +42,66 @@ const uint32_t IR_FlagCodes[7] = {
 												0x1404040A
 											};
 
-
 ////////////////////////////////////////////////// Pixel LED Setup
 #define NUM_LEDS 5
-CRGB leds[NUM_LEDS]; // Define the array of leds
 #define LED_DATA_PIN 2				// Pixel LED String
 
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_LEDS, LED_DATA_PIN, NEO_GRB + NEO_KHZ800);								
 
-// Use following two variables together e.g. teamcols_Hue(HSV_RED)
-enum HSV_Colours:uint8_t { HSV_RED, HSV_ORANGE, HSV_YELLOW, HSV_GREEN, HSV_CYAN, HSV_BLUE, HSV_PURPLE, HSV_MAGENTA };
-const uint8_t teamCols_Hue[8] =	{ 0, 18, 64, 96, 128, 160, 192, 230 };
+// Use following two variables together e.g. teamcols_Hue(RED)
+enum Colours:uint8_t { RED, ORANGE, YELLOW, GREEN, CYAN, BLUE, PURPLE, MAGENTA };
+const uint32_t teamCols[] = 	{	0xFF0000,	// Red
+											0xFF1C00,	// Orange
+											0xFF6F00,	// Yellow
+											0x00FF0A,	// Green
+											0x00AAAA,	// Cyan
+											0x0000FF,	// Blue
+											0x8F00FF,	// Purple
+											0xFF002F		// Magenta
+										};
 
-#define HSV_SFULL	255
-#define HSV_VFULL 255
-#define HSV_VDIM	35
-
-const uint8_t HSV_MYCOL = teamCols_Hue[HSV_RED];
-
+////////////////////////////////////////////////// Flag COlour & IR Code selection
+// See IR_FlagCodes (above) for options
+// IR Codes should be unique, but flag colours can be repeated (e.g. one team owns multiple flags)
+#define MY_IRCODE 1					
+const uint8_t MYCOL = RED;
 
 
 //////////////////////////////////////////////////
 void setup()
 {
+	// Seed random number generator
+	randomSeed(analogRead(4));
+
 	// Setup LEDs
-	FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, NUM_LEDS); 
-	// FastLED.setMaxPowerInVoltsAndMilliamps(5,200); 						// Limit total power draw of LEDs to 200mA at 5V
-	fill_solid(leds, NUM_LEDS, CHSV(HSV_MYCOL, HSV_SFULL, HSV_VFULL)); 
-	FastLED.show();
+	pixels.begin();
+	fill_solid(MYCOL);
 
 	delay(1000);
 
-	fill_solid(leds, NUM_LEDS, CRGB::Black); 
-	FastLED.show();
-
-	// Ensure code is sent straight away
-	My_Sender.send(IRCODE);
-
-
+	// Turn off again to save battery power
+	pixels.setPixelColor(0, pixels.Color(0,0,0));
+	pixels.show();
 }
  
 //////////////////////////////////////////////////
 void loop() 
 {
-	// TODO - update this to be more random on time intervals
-	if (timer_IR >= REPEATS)
-	{
-		My_Sender.send(IRCODE);
-		timer_IR = 0;
+	// NOTE: Calling this seems to break pixel control, delay() and millis() :( 
+	// I haven't yet worked out how to get around that
+	IR_TX.send(IR_FlagCodes[MY_IRCODE]);
 
-	}
-	else
-		timer_IR++;
+	delay(random(IR_TX_INTERVAL_MIN, IR_TX_INTERVAL_MAX) * DELAY_SCALE);
+}
+
+
+void fill_solid(uint8_t fillcolour)
+{
+	// Light all the LEDs the same colour & show
+	for (uint8_t i = 0; i < NUM_LEDS; ++i)
+		pixels.setPixelColor(i, teamCols[fillcolour]);
+	pixels.show();
+
+	return;
 }
 
