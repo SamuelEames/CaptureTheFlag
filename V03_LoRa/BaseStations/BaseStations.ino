@@ -38,7 +38,7 @@ enum team:uint8_t { TEAM_RED, TEAM_ORANGE, TEAM_YELLOW, TEAM_GREEN, TEAM_BLUE, T
 
 
 ///////////////////////////////////////////////////////////////////////// PIXEL SETUP
-#include "FastLED.h"
+// #include "FastLED.h"
 #define NUM_LEDS 20
 CRGB leds[NUM_LEDS]; // Define the array of leds
 
@@ -75,8 +75,10 @@ uint8_t FlagsSensed  = 0b00000000;			// Sensed flags are written here, then copi
 // 														COL_WHITE
 // 													};
 
-														// Red, Orange, Yellow, Green, Aqua, Blue, Purple, Pink
-const uint32_t teamCols_Hue[NUM_TEAMS] =	{ 0, 18, 64, 96, 128, 160, 192, 230 };
+// Use following two variables together e.g. teamcols_Hue(HSV_RED)
+enum HSV_Colours:uint8_t { HSV_RED, HSV_ORANGE, HSV_YELLOW, HSV_GREEN, HSV_CYAN, HSV_BLUE, HSV_PURPLE, HSV_MAGENTA };
+
+const uint8_t teamCols_Hue[8] =	{ 0, 18, 64, 96, 128, 160, 192, 230 };
 #define HSV_SFULL	255
 #define HSV_VFULL 255
 #define HSV_VDIM	35
