@@ -93,7 +93,7 @@ const uint8_t flagCols[NUM_FLAGS] = {0, 1, 2, 3, 4, 5, 6};
 // TODO Update this later to be set by hex BCD switch or EEPROM
 uint8_t MY_TEAM; 			// 'Background' colour to set LEDs on base station
 
-const uint16_t FlagReset_Period = 10000;	// Period (ms) on which to reset FlagsSensed
+const uint16_t FlagReset_Period = 5000;	// Period (ms) on which to reset FlagsSensed
 uint32_t FlagReset_StartTime;
 
 ///////////////////////////////////////////////////////////////////////// IR SETUP

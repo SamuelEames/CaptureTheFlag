@@ -60,12 +60,12 @@ const uint32_t teamCols[] = 	{	0xFF0000,	// Red
 											0xFF002F		// Magenta
 										};
 
-////////////////////////////////////////////////// Flag COlour & IR Code selection
+//+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+// Flag Colour & IR Code selection
 // See IR_FlagCodes (above) for options
 // IR Codes should be unique, but flag colours can be repeated (e.g. one team owns multiple flags)
-#define MY_IRCODE 1					
-const uint8_t MYCOL = RED;
-
+#define MY_IRCODE PURPLE 	// Range 0-7						
+#define MY_COLOUR PURPLE
+//+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+// 
 
 //////////////////////////////////////////////////
 void setup()
@@ -75,7 +75,7 @@ void setup()
 
 	// Setup LEDs
 	pixels.begin();
-	fill_solid(MYCOL);
+	fill_solid(MY_COLOUR);
 
 	delay(1000);
 
