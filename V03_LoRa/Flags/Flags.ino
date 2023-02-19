@@ -62,15 +62,18 @@ IRsendNEC IR_TX;                 // Instanciate IR transmitter
 #define IR_TX_INTERVAL_MIN 800      // Min ms intervall to send IR codes on
 #define IR_TX_INTERVAL_MAX 1600     // Max ms intervall to send IR codes on
 
-const uint32_t IR_FlagCodes[] = {
-                                    0x1010101A,
-                                    0x1020202A,
-                                    0x1040404A,
-                                    0x1080808A,
-                                    0x1101010A,
-                                    0x1202020A,
-                                    0x1404040A
-                                 };
+uint32_t myIR_Code = 0x00000000;
+#define CODE_OFFSET 0x7F
+
+// const uint32_t IR_FlagCodes[] = {
+//                                     0x1010101A,
+//                                     0x1020202A,
+//                                     0x1040404A,
+//                                     0x1080808A,
+//                                     0x1101010A,
+//                                     0x1202020A,
+//                                     0x1404040A
+//                                  };
 
 ////////////////////////////////////////////////// Pixel LED Setup
 #define NUM_LEDS 4
@@ -111,8 +114,8 @@ enum EEPROM_DATA:uint8_t { DATA_COL, DATA_ID }; // locations in EEPROM that data
 //+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+// Flag Colour & IR Code selection
 // See IR_FlagCodes (above) for options
 // IR Codes should be unique, but flag colours can be repeated (e.g. one team owns multiple flags)
-#define MY_IRCODE PURPLE   // Range 0-7                  
-#define MY_COLOUR PURPLE
+// #define MY_IRCODE PURPLE   // Range 0-7                  
+// #define MY_COLOUR PURPLE
 //+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+// 
 
 
@@ -162,6 +165,11 @@ void setup()
       flashLED(WHITE, 3, 100, 10);
    }
 
+   // Build my IR Code (col-col-ID-ID)
+   myIR_Code = myFlagCol + CODE_OFFSET;
+   myIR_Code = (myIR_Code << 8) + (myFlagCol - CODE_OFFSET);
+   myIR_Code = (myIR_Code << 8) + (myFlagID + CODE_OFFSET);
+   myIR_Code = (myIR_Code << 8) + (myFlagID - CODE_OFFSET);
 
    // Flash LEDs according to flag ID
    showLED_ID(myFlagCol, myFlagID);
@@ -181,7 +189,7 @@ void loop()
 {
    // NOTE: Calling this seems to break pixel control, delay() and millis() :( 
    // I haven't yet worked out how to get around that
-   IR_TX.send(IR_FlagCodes[MY_IRCODE]);
+   IR_TX.send(myIR_Code);
 
    delay(random(IR_TX_INTERVAL_MIN, IR_TX_INTERVAL_MAX) * DELAY_SCALE);
 }
