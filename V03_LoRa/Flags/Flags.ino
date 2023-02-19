@@ -63,7 +63,7 @@ IRsendNEC IR_TX;                 // Instanciate IR transmitter
 #define IR_TX_INTERVAL_MAX 1600     // Max ms intervall to send IR codes on
 
 uint32_t myIR_Code = 0x00000000;
-#define CODE_OFFSET 0x7F
+#define CODE_OFFSET 0x7F            // Offset value used for enoding flag col/ID into IR Code
 
 // const uint32_t IR_FlagCodes[] = {
 //                                     0x1010101A,
@@ -109,15 +109,6 @@ uint8_t myFlagID;             // Holds ID to be used for this flag
 #define MAX_FLAG_COLS  10 // Number of unique flag colours
 
 enum EEPROM_DATA:uint8_t { DATA_COL, DATA_ID }; // locations in EEPROM that data is saved to
-
-
-//+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+// Flag Colour & IR Code selection
-// See IR_FlagCodes (above) for options
-// IR Codes should be unique, but flag colours can be repeated (e.g. one team owns multiple flags)
-// #define MY_IRCODE PURPLE   // Range 0-7                  
-// #define MY_COLOUR PURPLE
-//+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+/+// 
-
 
 //////////////////////////////////////////////////
 void setup()
