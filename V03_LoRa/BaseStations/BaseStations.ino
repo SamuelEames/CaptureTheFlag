@@ -6,6 +6,17 @@
 //////////////////////////////////////////////////////////////////////////////
 
 
+// SETUP DEBUG MESSAGES
+// #define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
+#ifdef DEBUG
+  #define DPRINT(...)   Serial.print(__VA_ARGS__)   //DPRINT is a macro, debug print
+  #define DPRINTLN(...) Serial.println(__VA_ARGS__) //DPRINTLN is a macro, debug print with new line
+#else
+  #define DPRINT(...)                       //now defines a blank line
+  #define DPRINTLN(...)                     //now defines a blank line
+#endif
+
+
 // Include the things
 #include <RH_RF95.h>          // LoRa Driver
 #include <RHReliableDatagram.h>
@@ -14,7 +25,6 @@
 #include <FastLED.h>             // Pixel LED
 #include <EEPROM.h>              // EEPROM used to store (this) station ID
 
-#define debugMSG  1              // Uncomment to get debug / error messages in console
 
 
 enum team:uint8_t { TEAM_RED, TEAM_ORANGE, TEAM_YELLOW, TEAM_GREEN, TEAM_BLUE, TEAM_MAGENTA, TEAM_WHITE};
@@ -56,13 +66,30 @@ uint32_t LEDUpdate_StartTime;
 (2) Every time a flag is sensed, FlagsSensed is copied (AND) onto FlagsPresent
 (3) Every 10 seconds, FlagsPresent is set to equal FlagsSensed, then FlagsSensed is reset to 0
 
+
+Let's try this again
+ * When a flag is sensed
+   * A bit for it is set in 'FlagsSensed' --> 
+   * FlagsPresent |= FlagsSensed    --> Instantly record it in the master array
+ * At the end of every three seconds
+   * FlagsPresent = FlagsSensed     --> This flushes out flags that weren't sensed in the previous period
+   * FlagsPresent reset to 0        --> Start sensing afress
+
 */
 
-#define NUM_FLAGS 7
-#define NUM_TEAMS 8
+// #define NUM_FLAGS 7
+// #define NUM_TEAMS 8
 
-uint8_t FlagsPresent = 0b00000000;        // Used to update LEDs, but lags to change after flag is removed
-uint8_t FlagsSensed  = 0b00000000;        // Sensed flags are written here, then copied to FlagsPresent
+
+#define MAX_FLAG_ID    16  // Number of unique flag IDs per colour - note; value loosely limited by number of pixel LEDs to show ID value 
+#define MAX_FLAG_COLS  10 // Number of unique flag colours
+
+// uint8_t FlagsPresent = 0b00000000;        
+// uint8_t FlagsSensed  = 0b00000000;        
+
+uint16_t FlagsPresent[MAX_FLAG_COLS];        // Used to update LEDs, but lags to change after flag is removed
+uint16_t FlagsSensed[MAX_FLAG_COLS];         // Sensed flags are written here, then copied to FlagsPresent
+
 
 // Team pixel colours
 // const uint32_t teamCols[NUM_TEAMS] =   {  
@@ -173,7 +200,7 @@ void setup()
    //////////////////////////////////////// SERIAL SETUP
    Serial.begin(115200);
 
-   #ifdef debugMSG
+   #ifdef DEBUG
       while (!Serial)
       {
          // Show setup progress - blink red while we wait
@@ -198,9 +225,7 @@ void setup()
    //////////////////////////////////////// LORA SETUP
    if (!LoRa.init())
    {
-      #ifdef debugMSG
-         Serial.println("LoRa init failed");
-      #endif   
+      DPRINTLN("LoRa init failed"); 
 
       // Show progress - failed LoRa init
       leds[2] = CRGB::Red;
@@ -246,9 +271,7 @@ void setup()
 
 
 
-   #ifdef debugMSG
-      Serial.println(F("Setup completed"));
-   #endif
+   DPRINTLN(F("Setup completed"));
 
    // Make a little noise
    digitalWrite(BUZZ_PIN, LOW);
@@ -291,7 +314,7 @@ void LoRa_RX()
 
       if (LoRa.recvfromAck(LoRa_RX_Buffer, LoRa_RecvBuffLen, &LoRa_msgFrom))
       {
-         #ifdef debugMSG
+         #ifdef DEBUG
             Serial.print(F("got request from : "));
             Serial.println(LoRa_msgFrom, DEC);
 
@@ -311,9 +334,8 @@ void LoRa_RX()
          if (!LoRa.sendtoWait(&LoRa_msgFrom, 1, LoRa_msgFrom))
          {
             ;
-            #ifdef debugMSG
-               Serial.println(F("sendtoWait failed"));
-            #endif
+            DPRINTLN(F("sendtoWait failed"));
+            
          }
       }
    }
@@ -332,7 +354,7 @@ void LoRa_TX(uint8_t toAddr)
    // LoRa_TX_Buffer[1] = getBattPercent();     // Get current battery level
 
    // Copy flag flags into TX Buffer
-   memcpy ( &LoRa_TX_Buffer + STATION_DATA_LEN, &FlagsPresent, ceil(NUM_FLAGS/8));
+   memcpy ( &LoRa_TX_Buffer + STATION_DATA_LEN, &FlagsPresent, ceil(NUM_FLAGS/8)); // TODO - Fix this
    
 
    if (LoRa.sendtoWait(LoRa_TX_Buffer, LORA_BUFF_LEN, toAddr))
@@ -340,7 +362,7 @@ void LoRa_TX(uint8_t toAddr)
       // Now wait for a reply from the server
 
       // Print sent data
-      #ifdef debugMSG
+      #ifdef DEBUG
          Serial.print(F("Sent: "));
          for (uint8_t i = 0; i < LORA_BUFF_LEN; ++i)
          {
@@ -355,7 +377,7 @@ void LoRa_TX(uint8_t toAddr)
       if (LoRa.recvfromAckTimeout(LoRa_RX_Buffer, &LoRa_RecvBuffLen, 2000, &LoRa_msgFrom))
       {
          ;
-         #ifdef debugMSG
+         #ifdef DEBUG
             Serial.print(F("got reply from : "));
             Serial.println(LoRa_msgFrom, DEC);
 
@@ -369,19 +391,9 @@ void LoRa_TX(uint8_t toAddr)
             Serial.println();
          #endif
       }
-      else
-      {
-         #ifdef debugMSG
-            Serial.println(F("No reply from master station?"));
-         #endif
-      }
+      else { DPRINTLN(F("No reply from master station?")); }
    }
-   else
-   {
-      #ifdef debugMSG
-         Serial.println(F("sendtoWait failed"));
-      #endif
-   }
+   else { DPRINTLN(F("sendtoWait failed")); }
 
 
    // Reset timer for transmits
@@ -400,26 +412,26 @@ void IR_RX()
    {
       IR_Decoder.decode();           //Decode message
       // IR_Decoder.dumpResults(true);  //Dump results
+      decodeIR(IR_Decoder.value);
 
-      // Check if received IR code matches one of our team codes
-      for (uint8_t i = 0; i < NUM_FLAGS; ++i)
-      {
-         if (IR_Decoder.value == IR_FlagCodes[i])
-         {
-            // Flag detected!
-            FlagsSensed |= 1UL << i;      // Record it
-            FlagsPresent |= FlagsSensed;  // Update present flags
 
-            #ifdef debugMSG
-               Serial.print(F("Flags Sensed = "));
-               Serial.println(FlagsSensed, BIN);
-            #endif
+      // // Check if received IR code matches one of our team codes
+      // for (uint8_t i = 0; i < NUM_FLAGS; ++i)
+      // {
+      //    if (IR_Decoder.value == IR_FlagCodes[i])
+      //    {
+      //       // Flag detected!
+      //       FlagsSensed |= 1UL << i;      // Record it
+      //       FlagsPresent |= FlagsSensed;  // Update present flags
+
+      //       DPRINT(F("Flags Sensed = "));
+      //       DPRINTLNFlagsSensed, BIN);
             
-            // Only one IR code is read at a time, so jump out once we match one
-            IR_Receiver.enableIRIn();      //Restart IR receiver
-            return;
-         }
-      }
+      //       // Only one IR code is read at a time, so jump out once we match one
+      //       IR_Receiver.enableIRIn();      //Restart IR receiver
+      //       return;
+      //    }
+      // }
 
       IR_Receiver.enableIRIn();      //Restart IR receiver
    }
@@ -444,17 +456,23 @@ bool decodeIR(uint32_t code)
    IR_RecFlagID = (0xFF & code) + CODE_OFFSET;
    temp_IR_RecFlagID = ((code >> 8) & 0xFF) - CODE_OFFSET;
 
-   if (IR_RecFlagID != temp_IR_RecFlagID)
+   if ((IR_RecFlagID != temp_IR_RecFlagID) || (IR_RecFlagID >= MAX_FLAG_ID))      // Error checking
       return false;
    
    // Find Col
    IR_RecFlagCol = ((code >> 16) & 0xFF) + CODE_OFFSET;
    temp_IR_RecFlagCol = ((code >> 24) & 0xFF) - CODE_OFFSET;
 
-   if (IR_RecFlagCol != temp_IR_RecFlagCol)
+   if ((IR_RecFlagCol != temp_IR_RecFlagCol) || (IR_RecFlagCol >= MAX_FLAG_COLS))   // More Error checking
       return false;
 
-   // Save flag to table - TODO
+   // Save flag to table
+   FlagsSensed[IR_RecFlagCol] |= 1UL << IR_RecFlagID;          // Record it
+   FlagsPresent[IR_RecFlagCol] |= FlagsSensed[IR_RecFlagCol];  // Update present flags
+
+   DPRINT(F("Flags Sensed = "));
+   DPRINTLN(FlagsSensed, BIN);
+
 
    return true;
 }
@@ -466,19 +484,25 @@ void FlagResetTimer()
    // Checks to see if timer has elapsed and resets FlagsSensed if it has
    if ( (FlagReset_StartTime + FlagReset_Period) < millis() )
    {
-      FlagsPresent = FlagsSensed;   // Update present flags
-      FlagsSensed = 0;              // Reset FlagsSensed
+      // Update present flags (and forget those from previous period)
+      memcpy ( &FlagsPresent, &FlagsSensed, sizeof(FlagsPresent));  // memcpy(destination, source, size)
+
+      // Reset FlagsSensed
+      for (uint8_t i = 0; i < MAX_FLAG_COLS; ++i)
+         FlagsSensed[i] = 0;
+
+
+      // FlagsPresent = FlagsSensed;   // Update present flags
+      // FlagsSensed = 0;              // Reset FlagsSensed
 
       FlagReset_StartTime = millis();  // Reset timer
 
-      #ifdef debugMSG
-         Serial.println(F("Flags Reset"));
+      DPRINTLN(F("Flags Reset"));
 
-         Serial.print(F("Flags Sensed = "));
-         Serial.println(FlagsSensed, BIN);
-         Serial.print(F("Flags Present = "));
-         Serial.println(FlagsPresent, BIN);
-      #endif
+      // DPRINT(F("Flags Sensed = "));
+      // DPRINTLN(FlagsSensed, BIN);
+      // DPRINT(F("Flags Present = "));
+      // DPRINTLN(FlagsPresent, BIN);
 
    }
 
