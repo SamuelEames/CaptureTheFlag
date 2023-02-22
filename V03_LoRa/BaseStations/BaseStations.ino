@@ -7,7 +7,7 @@
 
 
 // SETUP DEBUG MESSAGES
-// #define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
+#define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
 #ifdef DEBUG
   #define DPRINT(...)   Serial.print(__VA_ARGS__)   //DPRINT is a macro, debug print
   #define DPRINTLN(...) Serial.println(__VA_ARGS__) //DPRINTLN is a macro, debug print with new line
@@ -73,11 +73,13 @@ Let's try this again
    * FlagsPresent |= FlagsSensed    --> Instantly record it in the master array
  * At the end of every three seconds
    * FlagsPresent = FlagsSensed     --> This flushes out flags that weren't sensed in the previous period
-   * FlagsPresent reset to 0        --> Start sensing afress
+   * FlagsPresent reset to 0        --> Start sensing afresh
+
+When I went to code this I realised I just described the same method... I guess that means it's either good or I just think the same way every time
 
 */
 
-// #define NUM_FLAGS 7
+#define NUM_FLAGS 7 // TODO - remove this
 // #define NUM_TEAMS 8
 
 
@@ -133,15 +135,15 @@ uint32_t FlagReset_StartTime;
 IRrecvPCI IR_Receiver(IR_REC_PIN);  // Instanciate IR receiver
 IRdecode IR_Decoder;          // Instanciate IR decoder
 
-const uint32_t IR_FlagCodes[NUM_FLAGS] = {
-                                             0x1010101A,
-                                             0x1020202A,
-                                             0x1040404A,
-                                             0x1080808A,
-                                             0x1101010A,
-                                             0x1202020A,
-                                             0x1404040A
-                                          };
+// const uint32_t IR_FlagCodes[NUM_FLAGS] = {
+//                                              0x1010101A,
+//                                              0x1020202A,
+//                                              0x1040404A,
+//                                              0x1080808A,
+//                                              0x1101010A,
+//                                              0x1202020A,
+//                                              0x1404040A
+//                                           };
 
 
 ///////////////////////////////////////////////////////////////////////// LoRa SETUP
@@ -407,12 +409,15 @@ void IR_RX()
 {
    // Checks for complete IR message
    // Logs which team message was received from
+   uint32_t temp_IRCode = 0;
 
    if (IR_Receiver.getResults()) 
    {
       IR_Decoder.decode();           //Decode message
+      temp_IRCode = IR_Decoder.value;
+      DPRINTLN(temp_IRCode, HEX);
       // IR_Decoder.dumpResults(true);  //Dump results
-      decodeIR(IR_Decoder.value);
+      decodeIR(temp_IRCode);
 
 
       // // Check if received IR code matches one of our team codes
@@ -446,6 +451,8 @@ void IR_RX()
 bool decodeIR(uint32_t code)
 {
    // Decodes IR signal (col-col-ID-ID)
+   DPRINT(F("Decoding IR = "));
+   DPRINTLN(code, HEX);
    uint8_t IR_RecFlagCol;
    uint8_t IR_RecFlagID;
 
@@ -470,8 +477,10 @@ bool decodeIR(uint32_t code)
    FlagsSensed[IR_RecFlagCol] |= 1UL << IR_RecFlagID;          // Record it
    FlagsPresent[IR_RecFlagCol] |= FlagsSensed[IR_RecFlagCol];  // Update present flags
 
-   DPRINT(F("Flags Sensed = "));
-   DPRINTLN(FlagsSensed, BIN);
+   DPRINT(F("Flag Col = "));
+   DPRINT(IR_RecFlagCol, DEC);
+   DPRINT(F("\tFlag ID = "));
+   DPRINTLN(IR_RecFlagID, DEC);
 
 
    return true;
@@ -516,6 +525,7 @@ void updateLEDs()
    // Lights up LEDs according to status of station
    static uint8_t step = 0;
    const uint8_t width = NUM_LEDS / NUM_FLAGS;
+   uint8_t  temp_numFlags = 0; // Used to hold number of flags per colour
 
    // Return if it's not time to update yet
    if ( (LEDUpdate_StartTime + LEDUpdate_Period) >= millis())
@@ -534,9 +544,12 @@ void updateLEDs()
    // Light up LEDs according to present flags
    int8_t pixelNum = 0;                                  // Current pixel being updated
 
-   for (uint8_t i = 0; i < NUM_FLAGS; ++i)               // Step through flag flags
+   for (uint8_t i = 0; i < MAX_FLAG_COLS; ++i)               // Step through flag flags
    {
-      if ((FlagsPresent >> i) & 1U)                      // If flag is present...
+      for (uint8_t j = 0; j < MAX_FLAG_ID; ++j)
+         temp_numFlags += (FlagsPresent[i] >> j) & 1U;  // TODO - Maybe move this to another section to save computation time
+
+      if (temp_numFlags)                      // If flag is present...
       {
          for (uint8_t j = 0; j < width; ++j)             // Light LEDs for present flags
          {
