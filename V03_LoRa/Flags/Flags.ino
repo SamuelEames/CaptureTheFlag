@@ -65,16 +65,6 @@ IRsendNEC IR_TX;                 // Instanciate IR transmitter
 uint32_t myIR_Code = 0x00000000;
 #define CODE_OFFSET 0x7F            // Offset value used for enoding flag col/ID into IR Code
 
-// const uint32_t IR_FlagCodes[] = {
-//                                     0x1010101A,
-//                                     0x1020202A,
-//                                     0x1040404A,
-//                                     0x1080808A,
-//                                     0x1101010A,
-//                                     0x1202020A,
-//                                     0x1404040A
-//                                  };
-
 ////////////////////////////////////////////////// Pixel LED Setup
 #define NUM_LEDS 4
 #define LED_DATA_PIN 2           // Pixel LED String
@@ -158,9 +148,10 @@ void setup()
 
    // Build my IR Code (col-col-ID-ID)
    myIR_Code = myFlagCol + CODE_OFFSET;
-   myIR_Code = (myIR_Code << 8) + (myFlagCol - CODE_OFFSET);
+   myIR_Code = (myIR_Code << 8) + (CODE_OFFSET - myFlagCol);
    myIR_Code = (myIR_Code << 8) + (myFlagID + CODE_OFFSET);
-   myIR_Code = (myIR_Code << 8) + (myFlagID - CODE_OFFSET);
+   myIR_Code = (myIR_Code << 8) + (CODE_OFFSET - myFlagID);
+
 
    // Flash LEDs according to flag ID
    showLED_ID(myFlagCol, myFlagID);
@@ -173,6 +164,8 @@ void setup()
    // Finish with flag lit up (solid) colour
    fill_solid(myFlagCol);
 
+   delay(100);
+
 }
  
 //////////////////////////////////////////////////
@@ -184,6 +177,7 @@ void loop()
 
    delay(random(IR_TX_INTERVAL_MIN, IR_TX_INTERVAL_MAX) * DELAY_SCALE);
 }
+
 
 void flashLED(uint8_t flashCol, uint8_t flashNum, uint8_t flashTime, uint8_t pause)
 {
@@ -238,6 +232,7 @@ void flashLED(uint8_t flashCol, uint8_t flashNum, uint8_t flashTime, uint8_t pau
 //    return false;
 // }
 
+
 void showLED_ID(uint8_t fillcolour, uint8_t ID)
 {
    // Lights LEDs in binary pattern according to ID
@@ -254,7 +249,6 @@ void showLED_ID(uint8_t fillcolour, uint8_t ID)
    
    return;
 }
-
 
 
 bool setFlagColID(uint8_t &value, uint8_t max)
@@ -301,13 +295,10 @@ bool setFlagColID(uint8_t &value, uint8_t max)
       pressedTime = millis();
    }
 
-
    lastBtnState = btnState;                        // Remember button state for next time
-
 
    return false;
 }
-
 
 
 void fill_solid(uint8_t fillcolour)
@@ -319,4 +310,3 @@ void fill_solid(uint8_t fillcolour)
 
    return;
 }
-

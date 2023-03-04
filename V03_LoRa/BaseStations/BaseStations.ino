@@ -126,13 +126,15 @@ const uint16_t FlagReset_Period = 5000;   // Period (ms) on which to reset Flags
 uint32_t FlagReset_StartTime;
 
 ///////////////////////////////////////////////////////////////////////// IR SETUP
+#include <IRLibRecvPCI.h>     // PCI = Pin Change Interrupt version
+IRrecvPCI IR_Receiver(IR_REC_PIN);  // Instanciate IR receiver
+
+// #include <IRLibRecv.h> 
 #include <IRLibDecodeBase.h>  // First include the decode base
 #include <IRLib_P01_NEC.h>    // Now include only the protocols you wish
 #include <IRLibCombo.h>       // After all protocols, include this
 
-#include <IRLibRecvPCI.h> 
-
-IRrecvPCI IR_Receiver(IR_REC_PIN);  // Instanciate IR receiver
+// IRrecv IR_Receiver(IR_REC_PIN);  // Instanciate IR receiver
 IRdecode IR_Decoder;          // Instanciate IR decoder
 
 // const uint32_t IR_FlagCodes[NUM_FLAGS] = {
@@ -284,6 +286,40 @@ void setup()
    LoRa_TX(ADDR_MASTER);
 
 
+   // uint32_t myIR_Code = 0;
+   // uint8_t myFlagCol = 2;
+   // uint8_t myFlagID = 5;
+   // uint8_t CODE_OFFSET = 0x7F;
+
+   // DPRINTLN(F("BUILDING IR CODE..."));
+   // DPRINTLN(myIR_Code, HEX);
+
+   //    // Build my IR Code (col-col-ID-ID)
+   // myIR_Code = myFlagCol + CODE_OFFSET;
+   // // DPRINTLN(myIR_Code, HEX);
+   // myIR_Code = (myIR_Code << 8) + (CODE_OFFSET - myFlagCol);
+   // // DPRINTLN(myIR_Code, HEX);
+   // myIR_Code = (myIR_Code << 8) + (myFlagID + CODE_OFFSET);
+   // // DPRINTLN(myIR_Code, HEX);
+   // myIR_Code = (myIR_Code << 8) + (CODE_OFFSET - myFlagID);
+   // // DPRINTLN(myIR_Code, HEX);
+
+
+   /*
+
+   0
+23:47:11.357 -> 81 yep
+23:47:11.357 -> 8083
+23:47:11.357 -> 808384
+23:47:11.357 -> 80838386
+
+
+*/
+
+
+
+
+
 }
 
 void loop() 
@@ -409,39 +445,17 @@ void IR_RX()
 {
    // Checks for complete IR message
    // Logs which team message was received from
-   uint32_t temp_IRCode = 0;
 
    if (IR_Receiver.getResults()) 
    {
-      IR_Decoder.decode();           //Decode message
-      temp_IRCode = IR_Decoder.value;
-      DPRINTLN(temp_IRCode, HEX);
+      if (IR_Decoder.decode())           //Decode message
+         decodeIR(IR_Decoder.value);
+
       // IR_Decoder.dumpResults(true);  //Dump results
-      decodeIR(temp_IRCode);
-
-
-      // // Check if received IR code matches one of our team codes
-      // for (uint8_t i = 0; i < NUM_FLAGS; ++i)
-      // {
-      //    if (IR_Decoder.value == IR_FlagCodes[i])
-      //    {
-      //       // Flag detected!
-      //       FlagsSensed |= 1UL << i;      // Record it
-      //       FlagsPresent |= FlagsSensed;  // Update present flags
-
-      //       DPRINT(F("Flags Sensed = "));
-      //       DPRINTLNFlagsSensed, BIN);
-            
-      //       // Only one IR code is read at a time, so jump out once we match one
-      //       IR_Receiver.enableIRIn();      //Restart IR receiver
-      //       return;
-      //    }
-      // }
 
       IR_Receiver.enableIRIn();      //Restart IR receiver
    }
-
-   
+ 
    return;
 }
 
@@ -460,14 +474,14 @@ bool decodeIR(uint32_t code)
    uint8_t temp_IR_RecFlagID;
 
    // Find ID
-   IR_RecFlagID = (0xFF & code) + CODE_OFFSET;
+   IR_RecFlagID = CODE_OFFSET - (0xFF & code);
    temp_IR_RecFlagID = ((code >> 8) & 0xFF) - CODE_OFFSET;
 
    if ((IR_RecFlagID != temp_IR_RecFlagID) || (IR_RecFlagID >= MAX_FLAG_ID))      // Error checking
       return false;
    
    // Find Col
-   IR_RecFlagCol = ((code >> 16) & 0xFF) + CODE_OFFSET;
+   IR_RecFlagCol = CODE_OFFSET - ((code >> 16) & 0xFF);
    temp_IR_RecFlagCol = ((code >> 24) & 0xFF) - CODE_OFFSET;
 
    if ((IR_RecFlagCol != temp_IR_RecFlagCol) || (IR_RecFlagCol >= MAX_FLAG_COLS))   // More Error checking
