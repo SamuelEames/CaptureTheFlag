@@ -79,44 +79,30 @@ When I went to code this I realised I just described the same method... I guess 
 
 */
 
-#define NUM_FLAGS 7 // TODO - remove this
-// #define NUM_TEAMS 8
-
 
 #define MAX_FLAG_ID    16  // Number of unique flag IDs per colour - note; value loosely limited by number of pixel LEDs to show ID value 
 #define MAX_FLAG_COLS  10 // Number of unique flag colours
-
-// uint8_t FlagsPresent = 0b00000000;        
-// uint8_t FlagsSensed  = 0b00000000;        
+     
 
 uint16_t FlagsPresent[MAX_FLAG_COLS];        // Used to update LEDs, but lags to change after flag is removed
 uint16_t FlagsSensed[MAX_FLAG_COLS];         // Sensed flags are written here, then copied to FlagsPresent
+uint8_t  FlagsCount[MAX_FLAG_COLS];          // Holds total of flags sensed for each colour
+uint8_t  totalFlagsCount = 0;                // Holds total flags present
 
-
-// Team pixel colours
-// const uint32_t teamCols[NUM_TEAMS] =   {  
-//                                           COL_RED,
-//                                           COL_ORANGE,
-//                                           COL_YELLOW,
-//                                           COL_GREEN,
-//                                           COL_CYAN,
-//                                           COL_BLUE,
-//                                           COL_MAGENTA,
-//                                           COL_WHITE
-//                                        };
 
 // Use following two variables together e.g. teamcols_Hue(HSV_RED)
 enum HSV_Colours:uint8_t { HSV_RED, HSV_ORANGE, HSV_YELLOW, HSV_GREEN, HSV_CYAN, HSV_BLUE, HSV_PURPLE, HSV_MAGENTA };
 
-const uint8_t teamCols_Hue[8] =  { 0, 18, 64, 96, 128, 160, 192, 230 };
+const uint8_t teamCols_Hue[MAX_FLAG_COLS] =  { 0, 18, 64, 96, 128, 160, 192, 230, 0, 0};
 #define HSV_SFULL 255
+#define HSV_NOSAT 0
 #define HSV_VFULL 255
 #define HSV_VDIM  35
 
 // Teams may have multiple flags associated with them but flags have unique IR Codes
 // flagCols array sets the colours of each flag; the number refers to the colour from teamCols[]
 // Match the order of this array with IR_FlagCodes[] to get the right colour for each flag IRCode
-const uint8_t flagCols[NUM_FLAGS] = {0, 1, 2, 3, 4, 5, 6};
+// const uint8_t flagCols[NUM_FLAGS] = {0, 1, 2, 3, 4, 5, 6};
 
 
 // TODO Update this later to be set by hex BCD switch or EEPROM
@@ -161,7 +147,7 @@ RHReliableDatagram LoRa(rf95, EEPROM.read(0));
 //    [1] Batt %  (set in TX function)
 
 
-const uint8_t LORA_BUFF_LEN = STATION_DATA_LEN + ceil(NUM_FLAGS/8); // NOTE: ensure this isn't greater than LoRa.maxMessageLength() = 239 bytes
+const uint8_t LORA_BUFF_LEN = STATION_DATA_LEN + ceil(MAX_FLAG_COLS/8); // NOTE: ensure this isn't greater than LoRa.maxMessageLength() = 239 bytes
 uint8_t LoRa_RecvBuffLen;                    // Set to RH_RF95_MAX_MESSAGE_LEN before each recv
 
 uint8_t LoRa_TX_Buffer[LORA_BUFF_LEN];       // Buffer to transmit over LoRa
@@ -259,7 +245,6 @@ void setup()
    delay(500);    // TODO - Why this delay?
 
 
-   
    //////////////////////////////////////// IR Receiver Setup
    IR_Receiver.enableIRIn(); // Start the receiver
 
@@ -269,11 +254,8 @@ void setup()
 
    LEDUpdate_StartTime = millis();
 
-
    // Record start time of program fro flag reset timer
    FlagReset_StartTime = millis();
-
-
 
    DPRINTLN(F("Setup completed"));
 
@@ -284,42 +266,6 @@ void setup()
 
    // Let the master know we're here!
    LoRa_TX(ADDR_MASTER);
-
-
-   // uint32_t myIR_Code = 0;
-   // uint8_t myFlagCol = 2;
-   // uint8_t myFlagID = 5;
-   // uint8_t CODE_OFFSET = 0x7F;
-
-   // DPRINTLN(F("BUILDING IR CODE..."));
-   // DPRINTLN(myIR_Code, HEX);
-
-   //    // Build my IR Code (col-col-ID-ID)
-   // myIR_Code = myFlagCol + CODE_OFFSET;
-   // // DPRINTLN(myIR_Code, HEX);
-   // myIR_Code = (myIR_Code << 8) + (CODE_OFFSET - myFlagCol);
-   // // DPRINTLN(myIR_Code, HEX);
-   // myIR_Code = (myIR_Code << 8) + (myFlagID + CODE_OFFSET);
-   // // DPRINTLN(myIR_Code, HEX);
-   // myIR_Code = (myIR_Code << 8) + (CODE_OFFSET - myFlagID);
-   // // DPRINTLN(myIR_Code, HEX);
-
-
-   /*
-
-   0
-23:47:11.357 -> 81 yep
-23:47:11.357 -> 8083
-23:47:11.357 -> 808384
-23:47:11.357 -> 80838386
-
-
-*/
-
-
-
-
-
 }
 
 void loop() 
@@ -365,7 +311,6 @@ void LoRa_RX()
             Serial.println();
          #endif
 
-
          newLoRaMessage = true;
 
          // Send a VERY SHORT reply back to the originator client
@@ -386,13 +331,12 @@ void LoRa_TX(uint8_t toAddr)
    // Transmit LoRa message
 
 
-
    // Update station data
    // LoRa_TX_Buffer[0] = NodeState;            // Get current game state
    // LoRa_TX_Buffer[1] = getBattPercent();     // Get current battery level
 
    // Copy flag flags into TX Buffer
-   memcpy ( &LoRa_TX_Buffer + STATION_DATA_LEN, &FlagsPresent, ceil(NUM_FLAGS/8)); // TODO - Fix this
+   memcpy ( &LoRa_TX_Buffer + STATION_DATA_LEN, &FlagsPresent, ceil(MAX_FLAG_COLS/8)); // TODO - Fix this
    
 
    if (LoRa.sendtoWait(LoRa_TX_Buffer, LORA_BUFF_LEN, toAddr))
@@ -419,7 +363,6 @@ void LoRa_TX(uint8_t toAddr)
             Serial.print(F("got reply from : "));
             Serial.println(LoRa_msgFrom, DEC);
 
-
             Serial.print(F("Received: "));
             for (uint8_t i = 0; i < LoRa_RecvBuffLen; ++i)
             {
@@ -432,7 +375,6 @@ void LoRa_TX(uint8_t toAddr)
       else { DPRINTLN(F("No reply from master station?")); }
    }
    else { DPRINTLN(F("sendtoWait failed")); }
-
 
    // Reset timer for transmits
    LoRa_TX_StartTime = millis();
@@ -491,15 +433,28 @@ bool decodeIR(uint32_t code)
    FlagsSensed[IR_RecFlagCol] |= 1UL << IR_RecFlagID;          // Record it
    FlagsPresent[IR_RecFlagCol] |= FlagsSensed[IR_RecFlagCol];  // Update present flags
 
+   FlagsCount[IR_RecFlagCol] = countSetBits(FlagsPresent[IR_RecFlagCol]);
+
    DPRINT(F("Flag Col = "));
    DPRINT(IR_RecFlagCol, DEC);
    DPRINT(F("\tFlag ID = "));
    DPRINTLN(IR_RecFlagID, DEC);
 
-
    return true;
 }
 
+
+uint8_t countSetBits(uint16_t n)
+{
+   // Count number of set bits in given value
+    uint8_t count = 0;
+    while (n) 
+    {
+        count += n & 1;
+        n >>= 1;
+    }
+    return count;
+}
 
 
 void FlagResetTimer()
@@ -510,13 +465,15 @@ void FlagResetTimer()
       // Update present flags (and forget those from previous period)
       memcpy ( &FlagsPresent, &FlagsSensed, sizeof(FlagsPresent));  // memcpy(destination, source, size)
 
-      // Reset FlagsSensed
+      totalFlagsCount = 0;
+
+      // Reset FlagsSensed & recount flags present
       for (uint8_t i = 0; i < MAX_FLAG_COLS; ++i)
+      {
          FlagsSensed[i] = 0;
-
-
-      // FlagsPresent = FlagsSensed;   // Update present flags
-      // FlagsSensed = 0;              // Reset FlagsSensed
+         FlagsCount[i] = countSetBits(FlagsPresent[i]);
+         totalFlagsCount += FlagsCount[i];
+      }
 
       FlagReset_StartTime = millis();  // Reset timer
 
@@ -538,8 +495,7 @@ void updateLEDs()
 {
    // Lights up LEDs according to status of station
    static uint8_t step = 0;
-   const uint8_t width = NUM_LEDS / NUM_FLAGS;
-   uint8_t  temp_numFlags = 0; // Used to hold number of flags per colour
+   uint8_t width = NUM_LEDS / MAX_FLAG_COLS;
 
    // Return if it's not time to update yet
    if ( (LEDUpdate_StartTime + LEDUpdate_Period) >= millis())
@@ -547,31 +503,35 @@ void updateLEDs()
    else
       LEDUpdate_StartTime = millis();
 
+   if (totalFlagsCount > 10)
+      width = 1;
+
    // Set dim base colour
-   // fill_solid(leds, NUM_LEDS, teamCols[MY_TEAM]);
-   // nscale8_video(leds, NUM_LEDS, 5);
-
    fill_solid(leds, NUM_LEDS, CHSV(teamCols_Hue[MY_TEAM], HSV_SFULL, HSV_VDIM)); 
-
-
 
    // Light up LEDs according to present flags
    int8_t pixelNum = 0;                                  // Current pixel being updated
 
-   for (uint8_t i = 0; i < MAX_FLAG_COLS; ++i)               // Step through flag flags
+   for (uint8_t i = 0; i < MAX_FLAG_COLS; ++i)           // Step through flag flags
    {
-      for (uint8_t j = 0; j < MAX_FLAG_ID; ++j)
-         temp_numFlags += (FlagsPresent[i] >> j) & 1U;  // TODO - Maybe move this to another section to save computation time
-
-      if (temp_numFlags)                      // If flag is present...
+      for (uint8_t k = 0; k < FlagsCount[i]; ++k)        // If flag is present...
       {
          for (uint8_t j = 0; j < width; ++j)             // Light LEDs for present flags
          {
-            if ( (step + pixelNum) >= NUM_LEDS)          // Loop back to start of pixel chain
-               // leds[step + pixelNum++ - NUM_LEDS] = teamCols[flagCols[i]]; 
-               leds[step + pixelNum++ - NUM_LEDS] = CHSV(teamCols_Hue[flagCols[i]], HSV_SFULL, HSV_VFULL);
-            else
-               leds[step + pixelNum++] = CHSV(teamCols_Hue[flagCols[i]], HSV_SFULL, HSV_VFULL); 
+            if (i >=8)  // Special case where colour is white or black - NOTE: black will be represented as white in this case
+            {
+               if ( (step + pixelNum) >= NUM_LEDS)       // Loop back to start of pixel chain
+                  leds[step + pixelNum++ - NUM_LEDS] = CHSV(HSV_NOSAT, HSV_NOSAT, HSV_VFULL);
+               else
+                  leds[step + pixelNum++] = CHSV(HSV_NOSAT, HSV_NOSAT, HSV_VFULL); 
+            }
+            else // Regular team colours
+            {
+               if ( (step + pixelNum) >= NUM_LEDS)       // Loop back to start of pixel chain
+                  leds[step + pixelNum++ - NUM_LEDS] = CHSV(teamCols_Hue[i], HSV_SFULL, HSV_VFULL);
+               else
+                  leds[step + pixelNum++] = CHSV(teamCols_Hue[i], HSV_SFULL, HSV_VFULL); 
+            }
          }
       }
    }
